@@ -20,8 +20,7 @@ if not api_keys or not api_keys[0]:
 
 key_manager = ApiKeyManager(
 	keys=[k.strip() for k in api_keys if k.strip()],
-	max_errors=3,
-	cooldown_period=300  # 5 minutes cooldown
+	consecutive_errors_limit=2  # 连续错误2次后永久禁用
 )
 
 # Initialize FastAPI app
