@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Form
-from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
+from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -8,9 +8,21 @@ import requests
 from dotenv import load_dotenv
 import os
 import io
+from api_key_manager import ApiKeyManager
 
 # Load environment variables
 load_dotenv()
+
+# Initialize API key manager
+api_keys = os.getenv('ELEVENLABS_API_KEYS', '').split(',')
+if not api_keys or not api_keys[0]:
+	api_keys = [os.getenv('ELEVENLABS_API_KEY', '')]
+
+key_manager = ApiKeyManager(
+	keys=[k.strip() for k in api_keys if k.strip()],
+	max_errors=3,
+	cooldown_period=300  # 5 minutes cooldown
+)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -20,10 +32,6 @@ app = FastAPI(
 )
 
 # ElevenLabs API configuration
-ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
-if not ELEVENLABS_API_KEY:
-	raise ValueError("ELEVENLABS_API_KEY not found in environment variables")
-
 ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
 DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"  # Adam voice ID
 
@@ -59,6 +67,11 @@ class LanguagesResponse(BaseModel):
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+@app.get("/api/key-status")
+async def get_key_status():
+	"""获取所有 API key 的状态"""
+	return JSONResponse(content=key_manager.get_status())
+
 @app.post("/api/tts")
 async def text_to_speech(
 	text: str = Form(...),
@@ -71,6 +84,14 @@ async def text_to_speech(
 	- 使用 ElevenLabs API 生成语音
 	"""
 	try:
+		# 获取可用的 API key
+		api_key = key_manager.get_key()
+		if not api_key:
+			raise HTTPException(
+				status_code=503,
+				detail="No API keys available. Please try again later."
+			)
+
 		# 将 Coqui-TTS 的 speaker_id 映射到 ElevenLabs 的 voice
 		voice_id = VOICE_MAPPING.get(speaker_id, DEFAULT_VOICE_ID)
 		
@@ -78,7 +99,7 @@ async def text_to_speech(
 		url = f"{ELEVENLABS_API_URL}/text-to-speech/{voice_id}"
 		headers = {
 			"Accept": "audio/mpeg",
-			"xi-api-key": ELEVENLABS_API_KEY,
+			"xi-api-key": api_key,
 			"Content-Type": "application/json"
 		}
 		data = {
@@ -93,10 +114,14 @@ async def text_to_speech(
 		# 发送请求到 ElevenLabs API
 		response = requests.post(url, json=data, headers=headers)
 		
-		if response.status_code != 200:
+		if response.status_code == 200:
+			key_manager.report_success(api_key)
+		else:
+			error_msg = f"ElevenLabs API error: {response.text}"
+			key_manager.report_error(api_key, error_msg)
 			raise HTTPException(
 				status_code=response.status_code,
-				detail=f"ElevenLabs API error: {response.text}"
+				detail=error_msg
 			)
 		
 		# 创建临时文件
@@ -114,7 +139,9 @@ async def text_to_speech(
 			filename="speech.mp3"
 		)
 		
-	except Exception as e:
+	except requests.exceptions.RequestException as e:
+		if api_key:
+			key_manager.report_error(api_key, str(e))
 		raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/speakers", response_model=SpeakersResponse)
@@ -126,7 +153,7 @@ async def list_speakers():
 	try:
 		# 调用 ElevenLabs API 获取可用的声音列表
 		url = f"{ELEVENLABS_API_URL}/voices"
-		headers = {"xi-api-key": ELEVENLABS_API_KEY}
+		headers = {"xi-api-key": key_manager.get_key()}
 		
 		response = requests.get(url, headers=headers)
 		if response.status_code != 200:

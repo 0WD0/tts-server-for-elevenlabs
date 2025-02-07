@@ -24,10 +24,17 @@ pip install -r requirements.txt
 ```
 
 3. 配置环境变量：
-创建 `.env` 文件并添加你的 ElevenLabs API key：
+创建 `.env` 文件并添加你的 ElevenLabs API key。你可以配置单个 key 或多个 key：
+
 ```env
+# 单个 API key
 ELEVENLABS_API_KEY=your_api_key_here
+
+# 或者多个 API key（用逗号分隔）
+ELEVENLABS_API_KEYS=key1,key2,key3
 ```
+
+如果配置了 `ELEVENLABS_API_KEYS`，服务器会自动在多个 key 之间切换，当某个 key 出现错误时会自动切换到下一个可用的 key。
 
 ## 运行服务器
 
