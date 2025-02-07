@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Service</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Text to Speech Service</h1>
+            <p class="text-gray-600">Powered by ElevenLabs</p>
+        </header>
+
+        <main class="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-6">
+            <div class="mb-6">
+                <label for="voice-select" class="block text-gray-700 text-sm font-bold mb-2">Select Voice</label>
+                <select id="voice-select" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="default">Loading voices...</option>
+                </select>
+            </div>
+
+            <div class="mb-6">
+                <label for="text-input" class="block text-gray-700 text-sm font-bold mb-2">Enter Text</label>
+                <textarea
+                    id="text-input"
+                    rows="4"
+                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Type your text here..."></textarea>
+            </div>
+
+            <div class="flex justify-between items-center mb-6">
+                <button
+                    id="generate-btn"
+                    class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg transition duration-200">
+                    Generate Speech
+                </button>
+                <div id="status" class="text-gray-600"></div>
+            </div>
+
+            <div id="audio-container" class="hidden">
+                <audio id="audio-player" controls class="w-full">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+</body>
+</html>
