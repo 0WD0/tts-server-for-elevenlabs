@@ -1,33 +1,43 @@
 import os
-import json
-from dotenv import load_dotenv
-import websockets
+import uuid
+from elevenlabs import VoiceSettings
+from elevenlabs.client import ElevenLabs
 
-# Load the API key from the .env file
-load_dotenv()
-ELEVENLABS_API_KEY = os.getenv("sk_f94c4ca02c61136a0d8b6ecc22616c5ace829db45341a02c")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+client = ElevenLabs(
+	api_key=ELEVENLABS_API_KEY,
+)
 
-voice_id = 'JBFqnCBsd6RMkjVDRZzb'
-# model_id = 'eleven_flash_v2_5'
-model_id = 'eleven_multilingual_v2'
 
-async def text_to_speech_ws_streaming(voice_id, model_id):
-    uri = f"wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input?model_id={model_id}"
-    async with websockets.connect(uri) as websocket:
-        await websocket.send(json.dumps({
-            "text": " ",
-            "voice_settings": {"stability": 0.5, "similarity_boost": 0.8, "use_speaker_boost": False},
-            "generation_config": {
-                "chunk_length_schedule": [120, 160, 250, 290]
-            },
-            "xi_api_key": ELEVENLABS_API_KEY,
-        }))
+def text_to_speech_file(text: str) -> str:
+	# Calling the text_to_speech conversion API with detailed parameters
+	response = client.text_to_speech.convert(
+		voice_id="pNInz6obpgDQGcFmaJgB", # Adam pre-made voice
+		output_format="mp3_22050_32",
+		text=text,
+		model_id="eleven_turbo_v2_5", # use the turbo model for low latency
+		voice_settings=VoiceSettings(
+			stability=0.0,
+			similarity_boost=1.0,
+			style=0.0,
+			use_speaker_boost=True,
+		),
+	)
 
-        text = "The twilight sun cast its warm golden hues upon the vast rolling fields, saturating the landscape with an ethereal glow. Silently, the meandering brook continued its ceaseless journey, whispering secrets only the trees seemed privy to."
-        await websocket.send(json.dumps({"text": text}))
+	# uncomment the line below to play the audio back
+	# play(response)
 
-        # Send empty string to indicate the end of the text sequence which will close the websocket connection
-        await websocket.send(json.dumps({"text": ""}))
+	# Generating a unique file name for the output MP3 file
+	save_file_path = f"{uuid.uuid4()}.mp3"
 
-        ...
+	# Writing the audio to a file
+	with open(save_file_path, "wb") as f:
+		for chunk in response:
+			if chunk:
+				f.write(chunk)
+
+	print(f"{save_file_path}: A new audio file was saved successfully!")
+
+	# Return the path of the saved audio file
+	return save_file_path
 

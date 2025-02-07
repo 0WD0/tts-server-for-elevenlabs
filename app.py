@@ -4,14 +4,17 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from typing import List, Optional
-import requests
 from dotenv import load_dotenv
 import os
-import io
 from api_key_manager import ApiKeyManager
+from elevenlabs import VoiceSettings
 
 # Load environment variables
 load_dotenv()
+
+# Constants
+TEMP_DIR = os.path.join(os.path.dirname(__file__), "temp")
+os.makedirs(TEMP_DIR, exist_ok=True)
 
 # Initialize API key manager
 api_keys = os.getenv('ELEVENLABS_API_KEYS', '').split(',')
@@ -83,9 +86,10 @@ async def text_to_speech(
 	- 使用 ElevenLabs API 生成语音
 	"""
 	try:
-		# 获取可用的 API key
-		api_key = key_manager.get_key()
-		if not api_key:
+		# 获取可用的客户端
+		key = key_manager.get_key()
+		client = key_manager.get_client()
+		if not key or not client:
 			raise HTTPException(
 				status_code=503,
 				detail="No API keys available. Please try again later."
@@ -94,53 +98,44 @@ async def text_to_speech(
 		# 将 Coqui-TTS 的 speaker_id 映射到 ElevenLabs 的 voice
 		voice_id = VOICE_MAPPING.get(speaker_id, DEFAULT_VOICE_ID)
 		
-		# 准备请求
-		url = f"{ELEVENLABS_API_URL}/text-to-speech/{voice_id}"
-		headers = {
-			"Accept": "audio/mpeg",
-			"xi-api-key": api_key,
-			"Content-Type": "application/json"
-		}
-		data = {
-			"text": text,
-			"model_id": "eleven_multilingual_v2",
-			"voice_settings": {
-				"stability": 0.5,
-				"similarity_boost": 0.75
-			}
-		}
-		
-		# 发送请求到 ElevenLabs API
-		response = requests.post(url, json=data, headers=headers)
-		
-		if response.status_code == 200:
-			key_manager.report_success(api_key)
-		else:
-			error_msg = f"ElevenLabs API error: {response.text}"
-			key_manager.report_error(api_key, error_msg)
-			raise HTTPException(
-				status_code=response.status_code,
-				detail=error_msg
+		try:
+			# 使用 SDK 生成语音
+			response = client.text_to_speech.convert(
+				voice_id=voice_id,
+				text=text,
+				model_id="eleven_multilingual_v2",
+				voice_settings=VoiceSettings(
+					stability=0.5,
+					similarity_boost=0.75,
+					use_speaker_boost=True
+				)
 			)
-		
-		# 创建临时文件
-		temp_dir = os.path.join(os.path.dirname(__file__), "temp")
-		os.makedirs(temp_dir, exist_ok=True)
-		temp_file = os.path.join(temp_dir, "speech.mp3")
-		
-		# 保存音频到临时文件
-		with open(temp_file, "wb") as f:
-			f.write(response.content)
-		
-		return FileResponse(
-			temp_file,
-			media_type="audio/mpeg",
-			filename="speech.mp3"
-		)
-		
-	except requests.exceptions.RequestException as e:
-		if api_key:
-			key_manager.report_error(api_key, str(e))
+			
+			# 保存到临时文件
+			temp_file = os.path.join(TEMP_DIR, "speech.mp3")
+			with open(temp_file, "wb") as f:
+				for chunk in response:
+					if chunk:
+						f.write(chunk)
+			
+			# 报告成功
+			key_manager.report_success(key)
+			
+			return FileResponse(
+				temp_file,
+				media_type="audio/mpeg",
+				filename="speech.mp3"
+			)
+			
+		except Exception as e:
+			# 报告错误
+			key_manager.report_error(key, str(e))
+			raise HTTPException(
+				status_code=500,
+				detail=str(e)
+			)
+			
+	except Exception as e:
 		raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/speakers", response_model=SpeakersResponse)
@@ -150,29 +145,32 @@ async def list_speakers():
 	返回格式与 Coqui-TTS 兼容
 	"""
 	try:
-		# 调用 ElevenLabs API 获取可用的声音列表
-		url = f"{ELEVENLABS_API_URL}/voices"
-		headers = {"xi-api-key": key_manager.get_key()}
-		
-		response = requests.get(url, headers=headers)
-		if response.status_code != 200:
+		key = key_manager.get_key()
+		client = key_manager.get_client()
+		if not key or not client:
 			raise HTTPException(
-				status_code=response.status_code,
-				detail=f"ElevenLabs API error: {response.text}"
+				status_code=503,
+				detail="No API keys available"
 			)
-		
-		voices_data = response.json()
-		speakers = []
-		
-		for voice in voices_data["voices"]:
-			speakers.append(Speaker(
-				id=voice["voice_id"],
-				name=voice["name"],
-				language=["en"]  # ElevenLabs 支持多语言，这里简化处理
-			))
-		
-		return SpeakersResponse(success=True, speakers=speakers)
-		
+			
+		try:
+			response = client.voices.get_all()
+			speakers = []
+			
+			for voice in response.voices:
+				speakers.append(Speaker(
+					id=voice.voice_id,
+					name=voice.name,
+					language=["en"]  # ElevenLabs 支持多语言，这里简化处理
+				))
+			
+			key_manager.report_success(key)
+			return SpeakersResponse(success=True, speakers=speakers)
+			
+		except Exception as e:
+			key_manager.report_error(key, str(e))
+			raise HTTPException(status_code=500, detail=str(e))
+			
 	except Exception as e:
 		raise HTTPException(status_code=500, detail=str(e))
 
