@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException, Request, Form
+from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -60,15 +60,19 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 @app.post("/api/tts")
-async def text_to_speech(request: TTSRequest):
+async def text_to_speech(
+	text: str = Form(...),
+	speaker_id: str = Form(default="default"),
+	language_id: str = Form(default="en")
+):
 	"""
 	将文本转换为语音
-	- 接受 Coqui-TTS 格式的请求
+	- 接受 form-urlencoded 格式的请求
 	- 使用 ElevenLabs API 生成语音
 	"""
 	try:
 		# 将 Coqui-TTS 的 speaker_id 映射到 ElevenLabs 的 voice
-		voice_id = VOICE_MAPPING.get(request.speaker_id, DEFAULT_VOICE_ID)
+		voice_id = VOICE_MAPPING.get(speaker_id, DEFAULT_VOICE_ID)
 		
 		# 准备请求
 		url = f"{ELEVENLABS_API_URL}/text-to-speech/{voice_id}"
@@ -78,7 +82,7 @@ async def text_to_speech(request: TTSRequest):
 			"Content-Type": "application/json"
 		}
 		data = {
-			"text": request.text,
+			"text": text,
 			"model_id": "eleven_multilingual_v2",
 			"voice_settings": {
 				"stability": 0.5,
@@ -95,16 +99,19 @@ async def text_to_speech(request: TTSRequest):
 				detail=f"ElevenLabs API error: {response.text}"
 			)
 		
-		# 创建内存缓冲区
-		audio_buffer = io.BytesIO(response.content)
-		audio_buffer.seek(0)
+		# 创建临时文件
+		temp_dir = os.path.join(os.path.dirname(__file__), "temp")
+		os.makedirs(temp_dir, exist_ok=True)
+		temp_file = os.path.join(temp_dir, "speech.mp3")
 		
-		return StreamingResponse(
-			audio_buffer,
+		# 保存音频到临时文件
+		with open(temp_file, "wb") as f:
+			f.write(response.content)
+		
+		return FileResponse(
+			temp_file,
 			media_type="audio/mpeg",
-			headers={
-				"Content-Disposition": "attachment; filename=speech.mp3"
-			}
+			filename="speech.mp3"
 		)
 		
 	except Exception as e:

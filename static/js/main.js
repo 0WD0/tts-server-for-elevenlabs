@@ -39,15 +39,18 @@ document.addEventListener('DOMContentLoaded', function() {
         statusDiv.classList.add('animate-pulse');
 
         try {
+            // 创建 FormData
+            const formData = new URLSearchParams();
+            formData.append('text', textInput.value);
+            formData.append('speaker_id', voiceSelect.value);
+            formData.append('language_id', 'en');
+
             const response = await fetch('/api/tts', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: JSON.stringify({
-                    text: textInput.value,
-                    speaker_id: voiceSelect.value
-                })
+                body: formData.toString()
             });
 
             if (!response.ok) {
