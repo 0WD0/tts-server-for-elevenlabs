@@ -1,30 +1,30 @@
 /* Custom styles */
 .audio-player {
-    border-radius: 0.5rem;
-    background: #f3f4f6;
-    padding: 1rem;
+	border-radius: 0.5rem;
+	background: #f3f4f6;
+	padding: 1rem;
 }
 
 .loading {
-    opacity: 0.7;
-    cursor: not-allowed;
+	opacity: 0.7;
+	cursor: not-allowed;
 }
 
 /* Animations */
 @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
+	0% { opacity: 1; }
+	50% { opacity: 0.5; }
+	100% { opacity: 1; }
 }
 
 .animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Responsive adjustments */
 @media (max-width: 640px) {
-    .container {
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
+	.container {
+		padding-left: 1rem;
+		padding-right: 1rem;
+	}
 }
