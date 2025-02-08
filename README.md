@@ -4,11 +4,13 @@
 
 ## 功能特点
 
+- 使用官方 ElevenLabs Python SDK
 - 支持 Coqui-TTS 格式的 API 请求
 - 提供美观的 Web 界面
 - 支持多种声音选择
 - 支持多语言
 - 实时语音生成和播放
+- 支持多 API key 管理和自动切换
 
 ## 安装
 
@@ -34,7 +36,18 @@ ELEVENLABS_API_KEY=your_api_key_here
 ELEVENLABS_API_KEYS=key1,key2,key3
 ```
 
-如果配置了 `ELEVENLABS_API_KEYS`，服务器会自动在多个 key 之间切换，当某个 key 出现错误时会自动切换到下一个可用的 key。
+如果配置了 `ELEVENLABS_API_KEYS`，服务器会自动在多个 key 之间切换，当某个 key 出现错误时会自动切换到下一个可用的 key。每个 key 会维护独立的错误计数，连续两次错误后会暂时禁用该 key。服务器重启会自动清空所有 key 的状态。
+
+## 依赖项
+
+- fastapi==0.109.0
+- uvicorn==0.27.0
+- requests==2.31.0
+- python-dotenv==1.0.0
+- pydantic==2.6.0
+- jinja2==3.1.3
+- python-multipart==0.0.5
+- elevenlabs==1.50.7
 
 ## 运行服务器
 
@@ -54,14 +67,14 @@ python app.py
 
 **参数：**
 - `text` (必需): 要转换的文本
-- `speaker_id` (可选): 说话人 ID，默认为 "default"
+- `speaker_id` (可选): ElevenLabs 声音 ID，默认为系统选择
 - `language_id` (可选): 语言 ID，默认为 "en"
 
 **示例：**
 ```bash
 curl -X POST \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  --data "text=Hello World&speaker_id=default&language_id=en" \
+  --data "text=Hello World&speaker_id=21m00Tcm4TlvDq8ikWAM&language_id=en" \
   http://localhost:5002/api/tts \
   --output speech.mp3
 ```
@@ -76,8 +89,8 @@ curl -X POST \
   "success": true,
   "speakers": [
     {
-      "id": "voice_id",
-      "name": "Voice Name",
+      "id": "21m00Tcm4TlvDq8ikWAM",
+      "name": "Rachel",
       "language": ["en"]
     }
   ]
@@ -101,47 +114,47 @@ curl -X POST \
 }
 ```
 
-## Neovim 集成示例
+### 4. 获取 API Key 状态
 
-```lua
-Job:new({
-    command = 'curl',
-    args = {
-        '-s',
-        '-X', 'POST',
-        '-H', 'Content-Type: application/x-www-form-urlencoded',
-        '--connect-timeout', tostring(config.config.connect_timeout),
-        '--data', string.format(
-            'text=%s&speaker_id=%s&language_id=%s',
-            encoded_text,
-            speaker or config.config.default_speaker,
-            language or config.config.default_language
-        ),
-        string.format('%s/api/tts', config.config.server_url),
-        '--output', config.config.temp_audio_file
-    },
-    on_exit = function(_, return_code)
-        vim.schedule(function()
-            if return_code ~= 0 then
-                vim.notify("TTS请求失败", vim.log.levels.ERROR)
-                callback(false)
-            else
-                utils.play_audio_file()
-                callback(true)
-            end
-        end)
-    end,
-}):start()
+**Endpoint:** `GET /api/key-status`
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "keys": [
+    {
+      "key": "xxxxx",  // 部分隐藏的 key
+      "is_active": true,
+      "error_count": 0,
+      "last_used": "2024-02-08T10:30:00Z"
+    }
+  ]
+}
 ```
+
+## 错误处理
+
+系统会自动处理以下情况：
+
+1. API Key 错误或超限：
+   - 自动切换到下一个可用的 key
+   - 连续两次错误后暂时禁用该 key
+   - 所有 key 不可用时返回 503 错误
+
+2. 请求错误：
+   - 无效参数: 400 Bad Request
+   - 服务器错误: 500 Internal Server Error
+   - 服务不可用: 503 Service Unavailable
 
 ## Web 界面
 
 访问 `http://localhost:5002` 可以使用 Web 界面：
 
-1. 从下拉菜单选择声音
-2. 输入要转换的文本
-3. 点击 "Generate Speech" 按钮
-4. 等待生成完成后自动播放
+- 选择不同的声音
+- 输入文本进行转换
+- 实时播放生成的语音
+- 下载生成的音频文件
 
 ## 目录结构
 
@@ -156,15 +169,6 @@ elevenlabs/
 ├── templates/          # HTML 模板
 └── temp/               # 临时音频文件目录
 ```
-
-## 依赖项
-
-- fastapi==0.109.0
-- uvicorn==0.27.0
-- requests==2.31.0
-- python-dotenv==1.0.0
-- pydantic==2.6.0
-- jinja2==3.1.3
 
 ## 注意事项
 
