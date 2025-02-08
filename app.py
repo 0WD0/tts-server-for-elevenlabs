@@ -37,11 +37,6 @@ app = FastAPI(
 ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
 DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"  # Adam voice ID
 
-# Voice mapping from Coqui-TTS to ElevenLabs
-VOICE_MAPPING = {
-	"default": DEFAULT_VOICE_ID,
-}
-
 # Pydantic models for request/response validation
 class TTSRequest(BaseModel):
 	text: str = Field(..., description="Text to be converted to speech")
@@ -95,13 +90,10 @@ async def text_to_speech(
 				detail="No API keys available. Please try again later."
 			)
 
-		# 将 Coqui-TTS 的 speaker_id 映射到 ElevenLabs 的 voice
-		voice_id = VOICE_MAPPING.get(speaker_id, DEFAULT_VOICE_ID)
-		
 		try:
 			# 使用 SDK 生成语音
 			response = client.text_to_speech.convert(
-				voice_id=voice_id,
+				voice_id=speaker_id if speaker_id != "default" else DEFAULT_VOICE_ID,
 				text=text,
 				model_id="eleven_multilingual_v2",
 				voice_settings=VoiceSettings(
