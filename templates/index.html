@@ -4,14 +4,24 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>TTS Service</title>
-	<link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/favicon.ico') }}">
+	<link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/favicon.svg') }}">
 	<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 	<link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
 </head>
 <body class="bg-gray-100 min-h-screen">
 	<div class="container mx-auto px-4 py-8">
 		<header class="text-center mb-12">
-			<h1 class="text-4xl font-bold text-gray-800 mb-2">Text to Speech Service</h1>
+			<h1 class="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center">
+				<svg class="w-8 h-8 mr-3" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<circle cx="16" cy="16" r="16" fill="#4A90E2"/>
+					<path d="M16 6v20M12 10v12M8 12v8M20 10v12M24 12v8" 
+						stroke="white" 
+						stroke-width="2.5" 
+						stroke-linecap="round"
+						stroke-linejoin="round"/>
+				</svg>
+				Text to Speech Service
+			</h1>
 			<p class="text-gray-600">Powered by ElevenLabs</p>
 		</header>
 
