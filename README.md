@@ -16,7 +16,7 @@
 
 1. 克隆仓库：
 ```bash
-git clone <repository_url>
+git clone git@github.com:0WD0/tts-server-to-elevenlabs.git
 cd elevenlabs
 ```
 
@@ -40,14 +40,16 @@ ELEVENLABS_API_KEYS=key1,key2,key3
 
 ## 依赖项
 
-- fastapi==0.109.0
-- uvicorn==0.27.0
-- requests==2.31.0
-- python-dotenv==1.0.0
-- pydantic==2.6.0
-- jinja2==3.1.3
-- python-multipart==0.0.5
-- elevenlabs==1.50.7
+```txt
+fastapi==0.115.11
+uvicorn==0.34.0
+requests==2.32.3
+python-dotenv==1.0.1
+pydantic==2.10.6
+jinja2==3.1.6
+python-multipart==0.0.20
+elevenlabs==1.54.0
+```
 
 ## 运行服务器
 
