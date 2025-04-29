@@ -150,6 +150,8 @@ async def list_speakers():
 			speakers = []
 			
 			for voice in response.voices:
+				if voice.name is None:
+					continue
 				speakers.append(Speaker(
 					id=voice.voice_id,
 					name=voice.name,
